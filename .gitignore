@@ -1,0 +1,19 @@
+# Visual Studio / .NET derleme çıktıları
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# NuGet
+packages/
+*.nupkg
+
+# Uygulamanın ürettiği kayıt dosyaları (repoya girmesin)
+keylog_*.txt
