@@ -46,5 +46,5 @@ Uygulama **yalnızca kendi penceresi aktifken** basılan tuşları kaydeder.
 - Bilinçli olarak global klavye kancası (global hook) kullanılmamıştır: başka uygulamalardaki tuşlar kaydedilmez, uygulama arka planda çalışmaz, kayıtlar ağa gönderilmez.
 
 ## Geliştiren
-- Ad Soyad: ...
-- Öğrenci No: ...
+- Ad Soyad: Muhammet Yasir Çelik
+- Öğrenci No: 250542010
