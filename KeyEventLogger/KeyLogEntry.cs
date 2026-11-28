@@ -1,13 +1,20 @@
 namespace KeyEventLogger
 {
     /// <summary>
-    /// Tek bir tuş olayını temsil eder: hangi tuş, hangi değiştiricilerle (Ctrl/Shift/Alt), ne zaman basıldı.
+    /// Tek bir tuş olayını temsil eder: hangi tuş, hangi değiştiricilerle (Ctrl/Shift/Alt), ne zaman basıldı
+    /// ve (varsa) tuşun ürettiği gerçek karakter.
     /// </summary>
     public class KeyLogEntry
     {
         public DateTime Time { get; }
         public Keys Key { get; }
         public Keys Modifiers { get; }
+
+        /// <summary>
+        /// KeyPress olayından gelen gerçek karakter (ör. ş, Ğ, @). Karakter üretmeyen tuşlarda (F5, oklar, Shift) null kalır.
+        /// KeyDown sadece fiziksel tuşu (Keys.Oem1) bildirir; klavye düzenine göre hangi harfin yazıldığını KeyPress söyler.
+        /// </summary>
+        public char? Character { get; private set; }
 
         public KeyLogEntry(Keys key, Keys modifiers)
         {
@@ -16,8 +23,18 @@ namespace KeyEventLogger
             Modifiers = modifiers;
         }
 
+        /// <summary>KeyPress geldiğinde kaydedici tarafından çağrılır.</summary>
+        internal void SetCharacter(char character)
+        {
+            Character = character;
+        }
+
+        /// <summary>Ekranda gösterilebilir bir karakter var mı? (Kontrol karakterleri ve boşluk hariç.)</summary>
+        public bool HasPrintableCharacter =>
+            Character is char c && !char.IsControl(c) && !char.IsWhiteSpace(c);
+
         /// <summary>
-        /// Ekranda/dosyada görünecek okunur ad. Örnek: "Ctrl+Shift+S", "Space", "Shift".
+        /// Tuşun okunur adı. Örnek: "Ctrl+Shift+S", "Space", "Shift", "Oem1".
         /// </summary>
         public string KeyName
         {
@@ -40,9 +57,37 @@ namespace KeyEventLogger
             }
         }
 
+        /// <summary>Listede gösterilecek ad: karakter varsa karakterin kendisi (ş), yoksa tuş adı (Ctrl+S, F5).</summary>
+        public string DisplayName => HasPrintableCharacter ? Character.GetValueOrDefault().ToString() : KeyName;
+
+        /// <summary>
+        /// İstatistikte kullanılan ad. Büyük/küçük harf ayrımı yapılmaz: "a" ile "Shift+A" aynı tuş sayılır.
+        /// </summary>
+        public string StatName
+        {
+            get
+            {
+                if (HasPrintableCharacter) return char.ToLower(Character.GetValueOrDefault()).ToString();
+
+                return Key switch
+                {
+                    Keys.ShiftKey => "Shift",
+                    Keys.ControlKey => "Ctrl",
+                    Keys.Menu => "Alt",
+                    _ => Key.ToString()
+                };
+            }
+        }
+
         public override string ToString()
         {
-            return $"[{Time:HH:mm:ss.fff}] {KeyName}";
+            string text = $"[{Time:HH:mm:ss.fff}] {DisplayName}";
+
+            // Karakter gösteriliyorsa hangi tuştan geldiğini de yaz: "ş   (Oem1)".
+            // Böylece KeyDown (fiziksel tuş) ile KeyPress (karakter) farkı da görülür.
+            if (HasPrintableCharacter) text += $"   ({KeyName})";
+
+            return text;
         }
     }
 }
