@@ -17,20 +17,29 @@ Uygulama **yalnızca kendi penceresi aktifken** basılan tuşları kaydeder.
 - Ctrl / Shift / Alt kombinasyonları birlikte gösterilir (ör. `Ctrl+Shift+S`)
 - **Başlat / Durdur** ile kayıt kontrolü
 - **Temizle** ile ekrandaki kayıtları silme
-- **Kaydet** ile kayıtları `.txt` dosyasına yazma
+- **Kaydet** ile kayıtları `.txt` veya `.csv` dosyasına yazma
 - **Saat aralığına göre filtreleme** *(isteğe bağlı)*: başlangıç–bitiş tarih/saati seçilip **Filtrele**'ye basılır;
   liste ve `.txt` kaydı sadece o aralıktaki tuşları içerir, **Filtreyi Kaldır** ile tüm kayıtlar geri gelir
 - Kayıt durumunu gösteren renkli gösterge (kırmızı: kayıt yapılıyor, gri: durduruldu)
-- Toplam tuş sayısı ve en sık basılan 3 tuş istatistiği (`a` ile `Shift+A` aynı tuş sayılır)
+- **Klavye ısı haritası**: Türkçe Q klavye çizimi üzerinde her tuş basılma sayısına göre soğuk (mavi) → sıcak (kırmızı)
+  renklenir, üzerinde kaç kez basıldığı yazar; son basılan tuş anlık olarak parlar. Tuş etiketleri, o tuşun ürettiği
+  karakterden öğrenilir (Ş, Ğ, Ö... her klavye düzeninde doğru görünür)
+- **Etkinlik grafiği**: son 2 dakikadaki tuş yoğunluğu 5 saniyelik sütunlar hâlinde, canlı güncellenir
+- **İstatistik kartları**: toplam tuş, farklı tuş sayısı, hız (son 60 sn'deki tuş = tuş/dk), toplam kayıt süresi
+- En sık basılan 5 tuş (`a` ile `Shift+A` aynı tuş sayılır)
+- **CSV dışa aktarma**: Excel'de açılabilen tablo (tarih, saat, tuş, karakter, Ctrl/Shift/Alt); Türkçe Excel için `;` ayırıcı ve UTF-8 BOM
 - Basılı tutulan tuş tekrar tekrar kaydedilmez (KeyUp ile takip edilir)
 
 ## Sınıf Yapısı
 | Sınıf | Görevi |
 |---|---|
 | `KeyLogEntry` | Tek bir tuş olayı (tuş, değiştiriciler, zaman, üretilen karakter) |
-| `KeyEventRecorder` | Kayıt durumu, kayıt listesi, KeyDown–KeyPress eşleştirme, filtreleme, istatistikler |
+| `KeyEventRecorder` | Kayıt durumu, kayıt listesi, KeyDown–KeyPress eşleştirme, filtreleme, istatistikler (hız, etkinlik, kayıt süresi) |
 | `TimeRange` | Filtrede kullanılan tarih/saat aralığı (`record struct`) |
-| `LogFileWriter` | Kayıtları .txt dosyasına yazma |
+| `HeatmapRenderer`, `HeatmapView` | Türkçe Q klavye ısı haritasını çizen sınıf ve onu gösteren kontrol (`Control`'den türer) |
+| `ActivityChartRenderer`, `ActivityChartView` | Etkinlik sütun grafiği |
+| `KeyCap`, `Palette` | Klavyedeki tuşun yeri/genişliği (`record struct`) ve uygulama renkleri |
+| `LogFileWriter` | Kayıtları .txt veya .csv dosyasına yazma |
 | `Form1` | Arayüz ve olayların bağlanması |
 
 ## Kurulum ve Çalıştırma
