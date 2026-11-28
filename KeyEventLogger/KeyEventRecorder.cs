@@ -7,6 +7,11 @@ namespace KeyEventLogger
     public class KeyEventRecorder
     {
         private readonly List<KeyLogEntry> _entries = new();
+        private readonly Dictionary<Keys, int> _keyCounts = new();
+
+        // Her fiziksel tuşun en son ürettiği karakter (ısı haritasında tuşun üzerine yazılır).
+        // Böylece hangi klavye düzeni kullanılırsa kullanılsın tuşlar doğru etiketlenir (ş, ğ, ö...).
+        private readonly Dictionary<Keys, char> _learnedCharacters = new();
 
         // Basılı tutulan tuşlar. Tuş basılı kaldığında Windows KeyDown'ı tekrar tekrar gönderir;
         // bu küme sayesinde her basışı sadece bir kez kaydediyoruz. KeyUp gelince tuş kümeden çıkar.
@@ -16,19 +21,43 @@ namespace KeyEventLogger
         // KeyDown'da oluşan kayıt, hemen ardından gelecek KeyPress'in karakterini bekler.
         private KeyLogEntry? _waitingForCharacter;
 
+        // Kayıt süresi: önceki kayıtların toplamı + (kayıt sürüyorsa) şu anki kaydın başlangıcı
+        private TimeSpan _recordedBefore;
+        private DateTime? _recordingStartedAt;
+
+        private static readonly System.Globalization.CultureInfo TurkishCulture = new("tr-TR");
+
         public bool IsRecording { get; private set; }
 
         public IReadOnlyList<KeyLogEntry> Entries => _entries;
+        public IReadOnlyDictionary<Keys, int> KeyCounts => _keyCounts;
+        public IReadOnlyDictionary<Keys, char> LearnedCharacters => _learnedCharacters;
 
         public int TotalCount => _entries.Count;
 
-        public void Start() => IsRecording = true;
+        /// <summary>Kaç farklı tuşa basıldı.</summary>
+        public int DistinctKeyCount => _keyCounts.Count;
+
+        /// <summary>Toplam kayıt süresi (durdurulan aralıklar sayılmaz).</summary>
+        public TimeSpan RecordingDuration =>
+            _recordedBefore + (_recordingStartedAt != null ? DateTime.Now - _recordingStartedAt.Value : TimeSpan.Zero);
+
+        public void Start()
+        {
+            if (IsRecording) return;
+            IsRecording = true;
+            _recordingStartedAt = DateTime.Now;
+        }
 
         public void Stop()
         {
+            if (!IsRecording) return;
             IsRecording = false;
             _pressedKeys.Clear();
             _waitingForCharacter = null;
+
+            if (_recordingStartedAt != null) _recordedBefore += DateTime.Now - _recordingStartedAt.Value;
+            _recordingStartedAt = null;
         }
 
         /// <summary>
@@ -42,6 +71,9 @@ namespace KeyEventLogger
             var entry = new KeyLogEntry(key, modifiers);
             _entries.Add(entry);
             _waitingForCharacter = entry;
+
+            _keyCounts.TryGetValue(key, out int count);
+            _keyCounts[key] = count + 1;
 
             return entry;
         }
@@ -57,6 +89,12 @@ namespace KeyEventLogger
             KeyLogEntry entry = _waitingForCharacter;
             _waitingForCharacter = null;
             entry.SetCharacter(character);
+
+            // Ctrl/Alt'sız basılan yazdırılabilir karakteri, tuşun etiketi olarak öğren
+            if (entry.HasPrintableCharacter && !entry.Modifiers.HasFlag(Keys.Control) && !entry.Modifiers.HasFlag(Keys.Alt))
+            {
+                _learnedCharacters[entry.Key] = char.ToUpper(character, TurkishCulture); // i → İ, ı → I
+            }
             return entry;
         }
 
@@ -74,8 +112,11 @@ namespace KeyEventLogger
         public void Clear()
         {
             _entries.Clear();
+            _keyCounts.Clear();
             _pressedKeys.Clear();
             _waitingForCharacter = null;
+            _recordedBefore = TimeSpan.Zero;
+            _recordingStartedAt = IsRecording ? DateTime.Now : null;
         }
 
         /// <summary>Verilen tarih/saat aralığındaki kayıtlar.</summary>
@@ -95,6 +136,37 @@ namespace KeyEventLogger
                 .OrderByDescending(pair => pair.Value)
                 .Take(n)
                 .ToList();
+        }
+
+        /// <summary>Son 60 saniyedeki tuş sayısı = dakikadaki tuş hızı.</summary>
+        public int KeysPerMinute(DateTime now)
+        {
+            DateTime from = now.AddSeconds(-60);
+            int count = 0;
+
+            // Kayıtlar zamana göre sıralı: sondan başa doğru say, 60 sn'den eskiye gelince dur
+            for (int i = _entries.Count - 1; i >= 0 && _entries[i].Time >= from; i--) count++;
+            return count;
+        }
+
+        /// <summary>
+        /// Etkinlik grafiği için: son (bucketCount × bucketSeconds) saniyeyi eşit aralıklara böler,
+        /// her aralıktaki tuş sayısını döndürür. Dizinin son elemanı en yeni aralıktır.
+        /// </summary>
+        public int[] GetActivity(DateTime now, int bucketSeconds, int bucketCount)
+        {
+            var buckets = new int[bucketCount];
+            DateTime start = now.AddSeconds(-bucketSeconds * bucketCount);
+
+            for (int i = _entries.Count - 1; i >= 0; i--)
+            {
+                DateTime time = _entries[i].Time;
+                if (time < start) break;
+
+                int index = (int)((time - start).TotalSeconds / bucketSeconds);
+                if (index >= 0 && index < bucketCount) buckets[index]++;
+            }
+            return buckets;
         }
     }
 }
